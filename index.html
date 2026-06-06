@@ -17,27 +17,63 @@
   canvas {
     display: block;
   }
+  #fullscreenBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 10px 15px;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid white;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 10;
+  }
 </style>
 </head>
 <body>
+<button id="fullscreenBtn">Fullscreen</button>
 <canvas id="gameCanvas"></canvas>
 <script>
   const canvas = document.getElementById('gameCanvas');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+  fullscreenBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) {
+      fullscreenBtn.style.display = 'none';
+    } else {
+      fullscreenBtn.style.display = 'block';
+    }
+    resize();
+  });
   const ctx = canvas.getContext('2d');
 
   let width, height;
 
   function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
+    width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+    height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     canvas.width = width;
     canvas.height = height;
     if (player) {
-      player.y = height - player.height / 2; // Keep fully visible at bottom
+      const padding = height * 0.05;
+      player.y = height - player.height / 2 - padding; // Keep fully visible at bottom
     }
   }
 
   window.addEventListener('resize', resize);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resize);
+  }
 
   let score = 0;
   let player = {
@@ -134,10 +170,11 @@
     }
 
     // Keep player on screen
+    const padding = height * 0.05;
     if (player.x < player.width / 2) player.x = player.width / 2;
     if (player.x > width - player.width / 2) player.x = width - player.width / 2;
     if (player.y < player.height / 2) player.y = player.height / 2;
-    if (player.y > height - player.height / 2) player.y = height - player.height / 2;
+    if (player.y > height - player.height / 2 - padding) player.y = height - player.height / 2 - padding;
 
     // Move projectiles
     for (let i = projectiles.length - 1; i >= 0; i--) {
@@ -188,34 +225,39 @@
     ctx.clearRect(0, 0, width, height);
 
     // Draw player
+    const shipWidth = player.width;
+    const shipHeight = shipWidth * (assets.ship.height / assets.ship.width);
     ctx.drawImage(
       assets.ship,
-      player.x - player.width / 2,
-      player.y - player.height / 2,
-      player.width,
-      player.height
+      player.x - shipWidth / 2,
+      player.y - shipHeight / 2,
+      shipWidth,
+      shipHeight
     );
 
     // Draw projectiles
     for (let p of projectiles) {
-      const projSize = p.radius * 4;
+      const projHeight = p.radius * 4;
+      const projWidth = projHeight * (assets.projectile.width / assets.projectile.height);
       ctx.drawImage(
         assets.projectile,
-        p.x - projSize / 2,
-        p.y - projSize / 2,
-        projSize,
-        projSize
+        p.x - projWidth / 2,
+        p.y - projHeight / 2,
+        projWidth,
+        projHeight
       );
     }
 
     // Draw enemies
     for (let e of enemies) {
+      const enemyWidth = e.width;
+      const enemyHeight = enemyWidth * (assets.enemy.height / assets.enemy.width);
       ctx.drawImage(
         assets.enemy,
-        e.x - e.width / 2,
-        e.y - e.height / 2,
-        e.width,
-        e.height
+        e.x - enemyWidth / 2,
+        e.y - enemyHeight / 2,
+        enemyWidth,
+        enemyHeight
       );
     }
 
@@ -245,7 +287,7 @@
         radius: 5,
         speed: 7
       });
-    }, 300);
+    }, 500);
 
     // Enemy spawning
     spawnInterval = setInterval(() => {
